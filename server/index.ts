@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initializeEmailService } from "./notifications";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize email service if API key is available
+  if (process.env.SENDGRID_API_KEY) {
+    initializeEmailService(process.env.SENDGRID_API_KEY);
+    log('Email service initialized');
+  } else {
+    log('Email service not configured - no SENDGRID_API_KEY provided');
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

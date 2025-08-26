@@ -104,7 +104,7 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`class-${pass.id}`}>
-                        {pass.class}
+                        {pass.year} Year - {pass.department}
                       </td>
                       <td className="px-6 py-4 text-sm text-foreground" data-testid={`reason-${pass.id}`}>
                         {pass.reason}

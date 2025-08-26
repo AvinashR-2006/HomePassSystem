@@ -5,9 +5,11 @@ export interface IStorage {
   // Students
   getStudent(id: string): Promise<Student | undefined>;
   getStudentByDigitalId(digitalId: string): Promise<Student | undefined>;
+  getStudentByEmail(email: string): Promise<Student | undefined>;
   createStudent(student: InsertStudent): Promise<Student>;
   createStudents(students: InsertStudent[]): Promise<Student[]>;
   getAllStudents(): Promise<Student[]>;
+  clearAllStudents(): Promise<void>;
   
   // Passes
   getPass(id: string): Promise<Pass | undefined>;
@@ -44,6 +46,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getStudentByEmail(email: string): Promise<Student | undefined> {
+    return Array.from(this.students.values()).find(
+      (student) => student.studentEmail === email
+    );
+  }
+
   async createStudent(insertStudent: InsertStudent): Promise<Student> {
     const id = randomUUID();
     const student: Student = { ...insertStudent, id };
@@ -62,6 +70,10 @@ export class MemStorage implements IStorage {
 
   async getAllStudents(): Promise<Student[]> {
     return Array.from(this.students.values());
+  }
+
+  async clearAllStudents(): Promise<void> {
+    this.students.clear();
   }
 
   async getPass(id: string): Promise<Pass | undefined> {
@@ -99,6 +111,7 @@ export class MemStorage implements IStorage {
       approvedAt: null,
       issuedAt: null,
       activatedAt: null,
+      completedAt: null,
       qrCode: null,
     };
     this.passes.set(id, pass);

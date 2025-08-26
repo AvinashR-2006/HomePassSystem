@@ -1,27 +1,16 @@
-import type { Express, Request } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStudentSchema, insertPassSchema, insertScanLogSchema } from "@shared/schema";
-import multer from "multer";
-import * as XLSX from "xlsx";
-
-interface MulterRequest extends Request {
-  file?: Express.Multer.File;
-}
-
-const upload = multer({ storage: multer.memoryStorage() });
+import { insertPassSchema, insertScanLogSchema, createPassSchema } from "@shared/schema";
+import { authenticateUser, requireRole, type AuthenticatedRequest } from "./auth";
+import { sendParentNotification, sendApprovalNotification } from "./notifications";
+import { registerAdminRoutes } from "./admin-routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Students endpoints
-  app.get("/api/students", async (req, res) => {
-    try {
-      const students = await storage.getAllStudents();
-      res.json(students);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch students" });
-    }
-  });
-
+  // Register admin routes
+  registerAdminRoutes(app);
+  
+  // Student lookup endpoint (for student form auto-population)
   app.get("/api/students/digital/:digitalId", async (req, res) => {
     try {
       const student = await storage.getStudentByDigitalId(req.params.digitalId);
@@ -34,74 +23,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/students", async (req, res) => {
+  // Passes endpoints with role-based access
+  app.get("/api/passes", authenticateUser, async (req: AuthenticatedRequest, res) => {
     try {
-      const validatedData = insertStudentSchema.parse(req.body);
-      const student = await storage.createStudent(validatedData);
-      res.json(student);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid student data" });
-    }
-  });
-
-  app.post("/api/students/upload", upload.single("file"), async (req: MulterRequest, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+      let passes = await storage.getAllPasses();
+      
+      // Filter passes based on user role
+      if (req.user?.role === 'student') {
+        passes = passes.filter(p => p.studentEmail === req.user?.email);
+      } else if (req.user?.role === 'parent') {
+        passes = passes.filter(p => p.parentEmail === req.user?.email);
       }
-
-      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(sheet);
-
-      const students = data.map((row: any) => ({
-        digitalId: row["Digital ID"] || row["digitalId"] || row["DigitalID"],
-        name: row["Student Name"] || row["name"] || row["Name"],
-        class: row["Class"] || row["class"] || row["Grade"],
-        parentEmail: row["Parent Email"] || row["parentEmail"] || row["ParentEmail"],
-      }));
-
-      // Validate each student record
-      const validStudents = students.filter(student => 
-        student.digitalId && student.name && student.class && student.parentEmail
-      );
-
-      if (validStudents.length === 0) {
-        return res.status(400).json({ message: "No valid student records found in file" });
-      }
-
-      // Clear existing students and add new ones
-      const createdStudents = await storage.createStudents(validStudents);
-      res.json({ 
-        message: `Successfully uploaded ${createdStudents.length} students`,
-        students: createdStudents 
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to process Excel file" });
-    }
-  });
-
-  // Passes endpoints
-  app.get("/api/passes", async (req, res) => {
-    try {
-      const passes = await storage.getAllPasses();
+      
       res.json(passes);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch passes" });
     }
   });
 
-  app.get("/api/passes/status/:status", async (req, res) => {
+  app.get("/api/passes/status/:status", authenticateUser, requireRole(['parent', 'warden', 'security']), async (req: AuthenticatedRequest, res) => {
     try {
-      const passes = await storage.getPassesByStatus(req.params.status);
+      let passes = await storage.getPassesByStatus(req.params.status);
+      
+      // Filter by parent email if it's a parent accessing
+      if (req.user?.role === 'parent') {
+        passes = passes.filter(p => p.parentEmail === req.user?.email);
+      }
+      
       res.json(passes);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch passes by status" });
     }
   });
 
-  app.get("/api/passes/stats", async (req, res) => {
+  app.get("/api/passes/stats", authenticateUser, requireRole(['warden', 'security']), async (req, res) => {
     try {
       const allPasses = await storage.getAllPasses();
       const stats = {
@@ -111,6 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         issued: allPasses.filter(p => p.status === "issued").length,
         active: allPasses.filter(p => p.status === "active").length,
         rejected: allPasses.filter(p => p.status === "rejected").length,
+        completed: allPasses.filter(p => p.status === "completed").length,
       };
       res.json(stats);
     } catch (error) {
@@ -118,53 +74,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/passes", async (req, res) => {
+  app.post("/api/passes", authenticateUser, requireRole(['student']), async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertPassSchema.parse(req.body);
-      const pass = await storage.createPass(validatedData);
+      
+      // Verify the student exists and email matches
+      const student = await storage.getStudentByDigitalId(validatedData.digitalId);
+      if (!student) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+      
+      if (student.studentEmail !== req.user?.email) {
+        return res.status(403).json({ message: "Digital ID does not match your email" });
+      }
+      
+      // Create the pass with student information
+      const passData = {
+        studentId: student.id,
+        studentName: student.name,
+        year: student.year,
+        department: student.department,
+        digitalId: validatedData.digitalId,
+        studentEmail: student.studentEmail,
+        parentEmail: student.parentEmail,
+        reason: validatedData.reason,
+        outDate: validatedData.outDate,
+        outTime: validatedData.outTime,
+        inDate: validatedData.inDate,
+        inTime: validatedData.inTime,
+      };
+      
+      const pass = await storage.createPass(passData);
+      
+      // Send notification to parent
+      await sendParentNotification(
+        student.parentEmail,
+        student.name,
+        student.digitalId,
+        validatedData.reason
+      );
+      
       res.json(pass);
     } catch (error) {
+      console.error('Error creating pass:', error);
       res.status(400).json({ message: "Invalid pass data" });
     }
   });
 
-  app.patch("/api/passes/:id/approve", async (req, res) => {
-    try {
-      const updatedPass = await storage.updatePass(req.params.id, {
-        status: "approved",
-        approvedAt: new Date(),
-      });
-      if (!updatedPass) {
-        return res.status(404).json({ message: "Pass not found" });
-      }
-      res.json(updatedPass);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to approve pass" });
-    }
-  });
-
-  app.patch("/api/passes/:id/reject", async (req, res) => {
-    try {
-      const updatedPass = await storage.updatePass(req.params.id, {
-        status: "rejected",
-      });
-      if (!updatedPass) {
-        return res.status(404).json({ message: "Pass not found" });
-      }
-      res.json(updatedPass);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to reject pass" });
-    }
-  });
-
-  app.patch("/api/passes/:id/issue", async (req, res) => {
+  app.patch("/api/passes/:id/approve", authenticateUser, requireRole(['parent']), async (req: AuthenticatedRequest, res) => {
     try {
       const pass = await storage.getPass(req.params.id);
       if (!pass) {
         return res.status(404).json({ message: "Pass not found" });
       }
       
-      const qrCode = `${pass.passId}-QR`;
+      // Verify parent has permission to approve this pass
+      if (pass.parentEmail !== req.user?.email) {
+        return res.status(403).json({ message: "You can only approve passes for your child" });
+      }
+      
+      const updatedPass = await storage.updatePass(req.params.id, {
+        status: "approved",
+        approvedAt: new Date(),
+      });
+      
+      // Send approval notification to student
+      await sendApprovalNotification(pass.studentEmail, pass.studentName, true);
+      
+      res.json(updatedPass);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to approve pass" });
+    }
+  });
+
+  app.patch("/api/passes/:id/reject", authenticateUser, requireRole(['parent']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const pass = await storage.getPass(req.params.id);
+      if (!pass) {
+        return res.status(404).json({ message: "Pass not found" });
+      }
+      
+      // Verify parent has permission to reject this pass
+      if (pass.parentEmail !== req.user?.email) {
+        return res.status(403).json({ message: "You can only reject passes for your child" });
+      }
+      
+      const updatedPass = await storage.updatePass(req.params.id, {
+        status: "rejected",
+      });
+      
+      // Send rejection notification to student
+      await sendApprovalNotification(pass.studentEmail, pass.studentName, false);
+      
+      res.json(updatedPass);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to reject pass" });
+    }
+  });
+
+  app.patch("/api/passes/:id/issue", authenticateUser, requireRole(['warden']), async (req, res) => {
+    try {
+      const pass = await storage.getPass(req.params.id);
+      if (!pass) {
+        return res.status(404).json({ message: "Pass not found" });
+      }
+      
+      if (pass.status !== "approved") {
+        return res.status(400).json({ message: "Pass must be approved before issuing" });
+      }
+      
+      const qrCode = `${pass.passId}-QR-${Date.now()}`;
       const updatedPass = await storage.updatePass(req.params.id, {
         status: "issued",
         issuedAt: new Date(),
@@ -177,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/passes/validate", async (req, res) => {
+  app.post("/api/passes/validate", authenticateUser, requireRole(['security']), async (req: AuthenticatedRequest, res) => {
     try {
       const { passCode } = req.body;
       
@@ -185,8 +204,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Pass code is required" });
       }
 
-      // Extract passId from QR code
-      const passId = passCode.replace("-QR", "");
+      // Extract passId from QR code (remove -QR suffix and timestamp)
+      const passId = passCode.split('-QR')[0];
       const pass = await storage.getPassByPassId(passId);
       
       if (!pass) {
@@ -194,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           passId: passCode,
           studentName: "Unknown",
           result: "invalid",
-          officer: "Security Officer A",
+          officer: req.user?.email || "Security Officer",
         });
         return res.json({ 
           valid: false, 
@@ -207,11 +226,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           passId: passCode,
           studentName: pass.studentName,
           result: "invalid",
-          officer: "Security Officer A",
+          officer: req.user?.email || "Security Officer",
         });
         return res.json({ 
           valid: false, 
-          message: "Pass not valid for exit" 
+          message: `Pass status: ${pass.status}. Not valid for exit.` 
+        });
+      }
+
+      // Check if current time is within valid out time window
+      const currentTime = new Date();
+      const outDateTime = new Date(`${pass.outDate}T${pass.outTime}`);
+      const inDateTime = new Date(`${pass.inDate}T${pass.inTime}`);
+      
+      if (currentTime < outDateTime || currentTime > inDateTime) {
+        await storage.createScanLog({
+          passId: passCode,
+          studentName: pass.studentName,
+          result: "invalid",
+          officer: req.user?.email || "Security Officer",
+        });
+        return res.json({ 
+          valid: false, 
+          message: "Pass not valid at current time" 
         });
       }
 
@@ -227,15 +264,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         passId: passCode,
         studentName: pass.studentName,
         result: "valid",
-        officer: "Security Officer A",
+        officer: req.user?.email || "Security Officer",
       });
 
       res.json({
         valid: true,
         message: "Student authorized to exit",
         studentName: pass.studentName,
-        class: pass.class,
-        validUntil: pass.returnDate,
+        department: pass.department,
+        year: pass.year,
+        validUntil: `${pass.inDate} ${pass.inTime}`,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to validate pass" });
@@ -243,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Scan logs endpoints
-  app.get("/api/scan-logs", async (req, res) => {
+  app.get("/api/scan-logs", authenticateUser, requireRole(['security', 'warden']), async (req, res) => {
     try {
       const logs = await storage.getAllScanLogs();
       res.json(logs);
@@ -252,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/scan-logs/recent/:limit", async (req, res) => {
+  app.get("/api/scan-logs/recent/:limit", authenticateUser, requireRole(['security', 'warden']), async (req, res) => {
     try {
       const limit = parseInt(req.params.limit) || 10;
       const logs = await storage.getRecentScanLogs(limit);
