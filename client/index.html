@@ -1,16 +1,569 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
-    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Home Pass System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:       #1a1208;
+      --paper:     #faf6ef;
+      --cream:     #f0e9d8;
+      --rule:      #ddd4be;
+      --amber:     #c8760a;
+      --amber-lt:  #f9e8cb;
+      --green:     #2d6a4f;
+      --green-lt:  #d8f3dc;
+      --red:       #9b2335;
+      --red-lt:    #fde0e4;
+      --blue:      #1b4080;
+      --blue-lt:   #dce8f8;
+      --shadow:    0 2px 16px rgba(26,18,8,.10);
+    }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'IBM Plex Sans', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ──────────────────────────────────── */
+    header {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: flex-end;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 24px rgba(0,0,0,.25);
+    }
+    .header-stamp {
+      width: 52px; height: 52px;
+      border: 3px solid var(--amber);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 22px; color: var(--amber);
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(22px, 3vw, 30px);
+      letter-spacing: .5px;
+      line-height: 1;
+    }
+    header p {
+      font-size: 12px; opacity: .5; margin-top: 4px;
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 2px; text-transform: uppercase;
+    }
+    .header-right {
+      margin-left: auto;
+      text-align: right;
+    }
+    #live-clock {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 20px;
+      color: var(--amber);
+      letter-spacing: 2px;
+    }
+    #live-date {
+      font-size: 11px; opacity: .4; letter-spacing: 1px;
+      font-family: 'IBM Plex Mono', monospace;
+      margin-top: 3px;
+    }
+
+    /* ── LAYOUT ──────────────────────────────────── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 36px 20px 60px;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* ── CARD ─────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-header {
+      background: var(--cream);
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--rule);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .card-body { padding: 22px; }
+
+    /* ── FORM ─────────────────────────────────────── */
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1px solid var(--rule);
+      border-radius: 5px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--paper);
+      transition: border .15s, box-shadow .15s;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px var(--amber-lt);
+    }
+    textarea { resize: vertical; min-height: 70px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 11px 22px;
+      border: none; border-radius: 5px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      transition: transform .1s, box-shadow .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary {
+      background: var(--ink); color: #fff; width: 100%;
+      letter-spacing: .5px;
+    }
+    .btn-primary:hover { background: #2e2010; box-shadow: 0 4px 14px rgba(0,0,0,.22); }
+
+    /* ── STATS ROW ──────────────────────────────── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 16px 14px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 30px;
+      line-height: 1;
+      color: var(--amber);
+    }
+    .stat-label {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 1.2px; color: #888;
+      margin-top: 4px;
+    }
+
+    /* ── FILTERS ────────────────────────────────── */
+    .filters {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .filter-btn {
+      padding: 6px 15px;
+      border: 1px solid var(--rule);
+      border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      background: #fff;
+      color: #555;
+      transition: all .15s;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: var(--ink); color: #fff; border-color: var(--ink);
+    }
+
+    /* ── PASS LIST ──────────────────────────────── */
+    #pass-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .pass-card {
+      background: #fff;
+      border: 1px solid var(--rule);
+      border-left: 4px solid #ccc;
+      border-radius: 8px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: start;
+      animation: slideIn .25s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .pass-card[data-status="pending"]  { border-left-color: var(--amber); }
+    .pass-card[data-status="approved"] { border-left-color: var(--green); }
+    .pass-card[data-status="returned"] { border-left-color: var(--blue); }
+    .pass-card[data-status="denied"]   { border-left-color: var(--red); }
+
+    .pass-name {
+      font-weight: 600; font-size: 15px;
+    }
+    .pass-meta {
+      font-size: 12px; color: #777; margin-top: 3px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .pass-detail {
+      font-size: 13px; margin-top: 8px;
+      display: flex; flex-wrap: wrap; gap: 10px;
+    }
+    .pass-detail span {
+      display: flex; align-items: center; gap: 4px; color: #444;
+    }
+    .pass-reason {
+      font-size: 12px; color: #888; margin-top: 6px;
+      font-style: italic;
+      border-top: 1px dashed var(--rule);
+      padding-top: 6px;
+    }
+
+    .pass-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .badge-pending  { background: var(--amber-lt); color: var(--amber); }
+    .badge-approved { background: var(--green-lt); color: var(--green); }
+    .badge-returned { background: var(--blue-lt);  color: var(--blue); }
+    .badge-denied   { background: var(--red-lt);   color: var(--red); }
+
+    .action-btns { display: flex; gap: 5px; }
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11px; font-weight: 600;
+      border: none; border-radius: 4px;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .btn-sm:hover { opacity: .8; }
+    .btn-approve  { background: var(--green-lt); color: var(--green); }
+    .btn-deny     { background: var(--red-lt);   color: var(--red); }
+    .btn-return   { background: var(--blue-lt);  color: var(--blue); }
+    .btn-delete   { background: #f0f0f0; color: #666; }
+
+    .empty-state {
+      text-align: center; padding: 50px 20px; color: #aaa;
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── TOAST ──────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: var(--ink); color: #fff;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.3);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all .3s cubic-bezier(.34,1.56,.64,1);
+      z-index: 999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── RESPONSIVE ──────────────────────────────── */
+    @media (max-width: 760px) {
+      main { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      header { padding: 18px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-stamp">HP</div>
+  <div>
+    <h1>Home Pass System</h1>
+    <p>Student Leave Management</p>
+  </div>
+  <div class="header-right">
+    <div id="live-clock">--:--:--</div>
+    <div id="live-date">Loading…</div>
+  </div>
+</header>
+
+<main>
+  <!-- ── LEFT: NEW PASS FORM ── -->
+  <aside>
+    <div class="card">
+      <div class="card-header">
+        <span>📋</span>
+        <h2>Issue New Pass</h2>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label>Student Name</label>
+          <input type="text" id="f-name" placeholder="Full name" />
+        </div>
+        <div class="field">
+          <label>Roll No. / Room No.</label>
+          <input type="text" id="f-roll" placeholder="e.g. 12B / Room 204" />
+        </div>
+        <div class="field">
+          <label>Destination</label>
+          <input type="text" id="f-dest" placeholder="e.g. Home, Hospital, Market" />
+        </div>
+        <div class="field">
+          <label>Departure Date & Time</label>
+          <input type="datetime-local" id="f-out" />
+        </div>
+        <div class="field">
+          <label>Expected Return</label>
+          <input type="datetime-local" id="f-in" />
+        </div>
+        <div class="field">
+          <label>Reason for Leave</label>
+          <textarea id="f-reason" placeholder="Brief reason…"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="issuePass()">
+          ✦ Issue Pass
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── RIGHT: PASS BOARD ── -->
+  <section>
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num" id="s-total">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="s-pending" style="color:var(--amber)">0</div>
+        <div class="stat-label">Pending</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="s-out" style="color:var(--green)">0</div>
+        <div class="stat-label">Out</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="s-returned" style="color:var(--blue)">0</div>
+        <div class="stat-label">Returned</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('pending', this)">Pending</button>
+      <button class="filter-btn" onclick="setFilter('approved', this)">Approved / Out</button>
+      <button class="filter-btn" onclick="setFilter('returned', this)">Returned</button>
+      <button class="filter-btn" onclick="setFilter('denied', this)">Denied</button>
+    </div>
+
+    <!-- Pass List -->
+    <div id="pass-list"></div>
+  </section>
+</main>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  // ── STATE ──────────────────────────────────────
+  let passes = JSON.parse(localStorage.getItem('home-passes') || '[]');
+  let currentFilter = 'all';
+
+  // ── CLOCK ──────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('live-clock').textContent =
+      now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('live-date').textContent =
+      now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── SET DEFAULT DATE/TIME ──────────────────────
+  function setDefaultDates() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const local = d =>
+      `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    document.getElementById('f-out').value = local(now);
+    const ret = new Date(now.getTime() + 2*24*60*60*1000);
+    document.getElementById('f-in').value = local(ret);
+  }
+  setDefaultDates();
+
+  // ── SAVE ───────────────────────────────────────
+  function save() {
+    localStorage.setItem('home-passes', JSON.stringify(passes));
+  }
+
+  // ── TOAST ──────────────────────────────────────
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  // ── ISSUE PASS ─────────────────────────────────
+  function issuePass() {
+    const name   = document.getElementById('f-name').value.trim();
+    const roll   = document.getElementById('f-roll').value.trim();
+    const dest   = document.getElementById('f-dest').value.trim();
+    const out    = document.getElementById('f-out').value;
+    const ret    = document.getElementById('f-in').value;
+    const reason = document.getElementById('f-reason').value.trim();
+
+    if (!name || !roll || !dest || !out || !ret) {
+      toast('⚠️ Please fill in all required fields.'); return;
+    }
+
+    const pass = {
+      id:      Date.now(),
+      name, roll, dest, out, ret, reason,
+      status:  'pending',
+      issued:  new Date().toISOString()
+    };
+    passes.unshift(pass);
+    save();
+    render();
+    toast(`✦ Pass issued for ${name}`);
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-roll').value = '';
+    document.getElementById('f-dest').value = '';
+    document.getElementById('f-reason').value = '';
+    setDefaultDates();
+  }
+
+  // ── STATUS CHANGE ──────────────────────────────
+  function setStatus(id, status) {
+    passes = passes.map(p => p.id === id ? { ...p, status } : p);
+    save(); render();
+    const labels = { approved:'Approved ✔', denied:'Denied ✗', returned:'Marked Returned ↩' };
+    toast(labels[status] || 'Updated');
+  }
+
+  function deletePass(id) {
+    if (!confirm('Delete this pass?')) return;
+    passes = passes.filter(p => p.id !== id);
+    save(); render();
+    toast('Pass deleted.');
+  }
+
+  // ── FILTER ─────────────────────────────────────
+  function setFilter(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  // ── FORMAT DATE ────────────────────────────────
+  function fmt(dt) {
+    if (!dt) return '—';
+    const d = new Date(dt);
+    return d.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
+      + ' ' + d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+  }
+
+  // ── RENDER ─────────────────────────────────────
+  function render() {
+    const filtered = currentFilter === 'all'
+      ? passes
+      : passes.filter(p => p.status === currentFilter);
+
+    // Stats
+    document.getElementById('s-total').textContent = passes.length;
+    document.getElementById('s-pending').textContent = passes.filter(p => p.status === 'pending').length;
+    document.getElementById('s-out').textContent = passes.filter(p => p.status === 'approved').length;
+    document.getElementById('s-returned').textContent = passes.filter(p => p.status === 'returned').length;
+
+    const list = document.getElementById('pass-list');
+    if (!filtered.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <p>No passes found${currentFilter !== 'all' ? ' for this filter' : ''}.</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(p => {
+      const badgeClass = `badge-${p.status}`;
+      const statusLabel = { pending:'Pending', approved:'Approved', returned:'Returned', denied:'Denied' }[p.status];
+
+      const actions = (() => {
+        if (p.status === 'pending') return `
+          <div class="action-btns">
+            <button class="btn-sm btn-approve" onclick="setStatus(${p.id},'approved')">✔ Approve</button>
+            <button class="btn-sm btn-deny"    onclick="setStatus(${p.id},'denied')">✗ Deny</button>
+          </div>`;
+        if (p.status === 'approved') return `
+          <div class="action-btns">
+            <button class="btn-sm btn-return" onclick="setStatus(${p.id},'returned')">↩ Returned</button>
+          </div>`;
+        return '';
+      })();
+
+      return `
+      <div class="pass-card" data-status="${p.status}">
+        <div>
+          <div class="pass-name">${p.name}</div>
+          <div class="pass-meta">${p.roll} · Issued ${fmt(p.issued)}</div>
+          <div class="pass-detail">
+            <span>📍 ${p.dest}</span>
+            <span>🚪 ${fmt(p.out)}</span>
+            <span>🔙 ${fmt(p.ret)}</span>
+          </div>
+          ${p.reason ? `<div class="pass-reason">"${p.reason}"</div>` : ''}
+        </div>
+        <div class="pass-actions">
+          <span class="badge ${badgeClass}">${statusLabel}</span>
+          ${actions}
+          <button class="btn-sm btn-delete" onclick="deletePass(${p.id})" style="margin-top:4px">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  render();
+</script>
+</body>
 </html>
